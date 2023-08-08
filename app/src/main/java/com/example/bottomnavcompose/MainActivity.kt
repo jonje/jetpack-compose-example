@@ -5,8 +5,10 @@ import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -22,6 +24,8 @@ import androidx.compose.material3.NavigationBarItemDefaults.colors
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
@@ -30,14 +34,38 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.room.Room
+import com.example.bottomnavcompose.database.ContactDatabase
+import com.example.bottomnavcompose.screen.ContactScreen
 import com.example.bottomnavcompose.ui.theme.BottomNavComposeTheme
+import com.example.bottomnavcompose.viewmodel.ContactViewModel
 
 class MainActivity : ComponentActivity() {
+
+    private val db by lazy {
+        Room.databaseBuilder(
+            applicationContext,
+            ContactDatabase::class.java,
+            "contacts.db"
+        ).build()
+    }
+
+    private val viewModel by viewModels<ContactViewModel>(
+        factoryProducer = {
+            object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return ContactViewModel(db.contactDao) as T
+                }
+            }
+        }
+    )
     @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,8 +87,8 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                ) {
-                    Navigation(navController = navController)
+                ) {padding ->
+                    Navigation(navController = navController, viewModel = viewModel, padding = padding)
                 }
             }
         }
@@ -68,10 +96,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Navigation(navController: NavHostController) {
+fun Navigation(navController: NavHostController, viewModel: ContactViewModel, padding: PaddingValues) {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
-            HomeScreen()
+            HomeScreen(viewModel, padding = padding)
         }
 
         composable("chat") {
@@ -137,13 +165,9 @@ fun BottomNavigationBar(
 }
 
 @Composable
-fun HomeScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-        ) {
-        Text(text = "Home Screen")
-    }
+fun HomeScreen(viewModel: ContactViewModel, padding: PaddingValues) {
+    val state by viewModel.state.collectAsState()
+    ContactScreen(state = state, onEvent = viewModel::onEvent, padding = padding)
 }
 
 @Composable
